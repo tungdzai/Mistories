@@ -2,13 +2,11 @@ const axios = require('axios');
 const {promises: fs} = require("fs");
 const {getRandomTime, generateRandomPhone, generateRandomUserName} = require('./handlers');
 const {getProxiesData} = require('./proxy');
-const {sendTelegramMessage} = require("./telegram");
 const {HttpsProxyAgent} = require("https-proxy-agent");
 
 async function getProxies() {
     const proxiesData = await getProxiesData();
     if (!proxiesData || proxiesData.length === 0) {
-        await sendTelegramMessage('Không có proxy nào khả dụng để sử dụng.');
         console.error('Không có proxy nào để sử dụng');
         return null;
     }
@@ -172,8 +170,8 @@ async function checkProxiesAndRun() {
             console.error('Lỗi khi ghi file:', error);
         }
 
-        console.log('Đợi 20 giây trước khi xử lý batch tiếp theo...');
-        await new Promise(resolve => setTimeout(resolve, 20000));
+        console.log('Đợi 10 giây trước khi xử lý batch tiếp theo...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
     }
 }
 

@@ -13,6 +13,17 @@ async function withTimeout(promise, ms) {
     return Promise.race([promise, timeout]);
 }
 
+async function retry(fn, retries = 3, delay = 3000) {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries <= 0) throw error;
+        console.log(`Lỗi khi gọi API: ${error.message}. Thử lại sau ${delay / 1000} giây...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return retry(fn, retries - 1, delay); // Cố gắng lại với số lần thử giảm dần
+    }
+}
+
 async function getProxies() {
     const proxiesData = await getProxiesData();
     if (!proxiesData || proxiesData.length === 0) {
@@ -55,8 +66,8 @@ async function login(phone, agent) {
             name: 'HIEN',
             phone: phone
         });
-        const response = await withTimeout(
-            await axios.post('https://thmistoriapi.zalozns.net/backend-user/login/th', data, {
+        const response = await retry(async () => {
+            return await axios.post('https://thmistoriapi.zalozns.net/backend-user/login/th', data, {
                 headers: {
                     'accept': 'application/json, text/javascript, */*; q=0.01',
                     'accept-encoding': 'gzip, deflate, br, zstd',
@@ -69,24 +80,16 @@ async function login(phone, agent) {
                     'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
                     'sec-ch-ua-mobile': '?0',
                     'sec-ch-ua-platform': '"Windows"',
-                    'sec-fetch-dest': 'empty',
-                    'sec-fetch-mode': 'cors',
-                    'sec-fetch-site': 'cross-site',
                     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'x-pgp-api-media': '1'
                 },
                 httpAgent: agent,
                 httpsAgent: agent
-            }),
-            timeout
-        )
-        return response.data;
+            });
+        }, 3); // Thử lại tối đa 3 lần nếu gặp lỗi
 
+        return response.data;
     } catch (error) {
-        if (error.message === 'Timeout exceeded') {
-            console.error('Hết thời gian chờ');
-            return null;
-        }
         console.error('Đăng nhập không thành công:', error.response ? error.response.data : error.message);
         return null;
     }
@@ -94,8 +97,8 @@ async function login(phone, agent) {
 
 async function checkCodeLucky(token, gift, agent) {
     try {
-        const response = await withTimeout(
-            await axios.get(`https://thmistoriapi.zalozns.net/campaigns/check-code-lucky/${gift}`, {
+        const response = await retry(async () => {
+            return await axios.get(`https://thmistoriapi.zalozns.net/campaigns/check-code-lucky/${gift}`, {
                 headers: {
                     'Host': 'thmistoriapi.zalozns.net',
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -112,26 +115,20 @@ async function checkCodeLucky(token, gift, agent) {
                 },
                 httpAgent: agent,
                 httpsAgent: agent
-            }),
-            timeout
-        )
+            });
+        }, 3); // Thử lại tối đa 3 lần nếu gặp lỗi
 
-        return response.data
+        return response.data;
     } catch (error) {
-        if (error.message === 'Timeout exceeded') {
-            console.error('Hết thời gian check gift');
-            return null;
-        }
         console.error('Error Checking Code Lucky:', error.response ? error.response.data : error.message);
         return null;
     }
 }
 
 async function receiveCoupon(tokenCoupon, agent) {
-
     try {
-        const response = await withTimeout(
-            await axios.post('https://thmistoriapi.zalozns.net/coupon/receive', 'lucky_wheel_delay=15', {
+        const response = await retry(async () => {
+            return await axios.post('https://thmistoriapi.zalozns.net/coupon/receive', 'lucky_wheel_delay=15', {
                 headers: {
                     'Host': 'thmistoriapi.zalozns.net',
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -150,25 +147,20 @@ async function receiveCoupon(tokenCoupon, agent) {
                 },
                 httpAgent: agent,
                 httpsAgent: agent
-            }),
-            timeout
-        )
+            });
+        }, 3); // Thử lại tối đa 3 lần nếu gặp lỗi
 
-        return response.data
+        return response.data;
     } catch (error) {
-        if (error.message === 'Timeout exceeded') {
-            console.error('Hết thời gian receive Coupon');
-            return null;
-        }
         console.error('Error Receiving Coupon:', error.response ? error.response.data : error.message);
-        return null
+        return null;
     }
 }
 
 async function deliverCoupon(tokenCoupon, coupon, agent) {
     try {
-        const response = await withTimeout(
-            await axios.post(`https://thmistoriapi.zalozns.net/coupon-users/delivery/${coupon}`, {}, {
+        const response = await retry(async () => {
+            return await axios.post(`https://thmistoriapi.zalozns.net/coupon-users/delivery/${coupon}`, {}, {
                 headers: {
                     'Host': 'thmistoriapi.zalozns.net',
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -185,32 +177,29 @@ async function deliverCoupon(tokenCoupon, coupon, agent) {
                 },
                 httpAgent: agent,
                 httpsAgent: agent
-            }),
-            timeout
-        )
-        return response.data
+            });
+        }, 3); // Thử lại tối đa 3 lần nếu gặp lỗi
+
+        return response.data;
     } catch (error) {
-        if (error.message === 'Timeout exceeded') {
-            console.error('Hết thời gian Delivery Coupon');
-            return null;
-        }
         console.error('Error Delivery Coupon:', error.response ? error.response.data : error.message);
-        return null
+        return null;
     }
 }
 
 async function checkProxiesAndRun() {
     const phones = await readCodesFromFile('./data/phone.txt');
     const codes = await readCodesFromFile('./data/quatangmistori.txt');
-    const batchSize = 30;
-
+    const batchSize = 5;
+    const proxies = await getProxies();
     for (let i = 0; i < codes.length; i += batchSize) {
-        const proxies = (await getProxies()).slice(0, batchSize);
+        const batchProxies = proxies.slice(i % proxies.length, (i % proxies.length) + batchSize)
+            .concat(proxies.slice(0, Math.max(0, (i % proxies.length) + batchSize - proxies.length)));
         const batchGift = codes.slice(i, i + batchSize);
 
         const pairedProxiesAndGifts = batchGift.map((gift, index) => ({
             gift,
-            proxy: proxies[index] || proxies[index % proxies.length],
+            proxy: batchProxies[index % batchProxies.length], // Đảm bảo proxy lặp lại nếu số lượng gift lớn hơn proxy.
         }));
 
         console.log('Processing batch:', pairedProxiesAndGifts);
